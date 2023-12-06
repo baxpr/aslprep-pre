@@ -48,9 +48,10 @@ Units of time should always be seconds.
 from __future__ import print_function
 import json
 import re
-import sys, getopt
+import sys
 import glob
 import numpy as np
+import argparse
 
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
@@ -104,26 +105,17 @@ def modify_json(json_file, s_dict):
 		sys.exit()
 
 def main(argv):
-	indir = ''
-	scannames = ''
-	bids = ''
-	inputfile= ''
-	try:
-		opts, args = getopt.getopt(argv, "hi:b:e:",["input=","bids=","examcard="])
-	except getopt.GetoptError:
-		print('examcard2json.py -i <indir> -b <folder> -e <examcard.txt>')
-		sys.exit(2)
-	for opt, arg in opts:
-		if opt == '-h':
-			print('examcard2json.py -i <indir> -b <folder> -e <examcard.txt>')
-			sys.exit()
-		elif opt in ("-i", "--input"):
-			indir = arg
-		elif opt in ("-b", "--bids"):
-			bids = arg
-		elif opt in ("-e","--examcard"):
-			inputfile = arg
-
+    
+    # FIXME take filenames as input instead of using glob to search for files
+    
+    parser = argparse.ArgumentParser()
+    parser.add_argument('indir')
+    parser.add_argument('bidsdir')
+    parser.add_argument('examcard')
+    args = parser.parse_args()
+    indir = args.indir
+    bidsdir = args.bidsdir
+    examcard = args.examcard
 
 	#Initialize dictionaries
 	scan_dict = {}
@@ -137,7 +129,7 @@ def main(argv):
 		scan_dict[scan] = {}
 
 		print('\nStarting scan:', scan)
-		find_scans = search_string_in_file(inputfile,scan,0)
+		find_scans = search_string_in_file(examcard,scan,0)
 		# Find start of scan section
 		string_to_search = 'Protocol Name:  ' + scan
 		if find_scans:
@@ -145,7 +137,7 @@ def main(argv):
 				for num in line:
 					if re.search(r"\b{}\b".format(string_to_search),str(num)):
 						start_line = line[0]
-			search_tmp = search_string_in_file(inputfile,'Arterial Spin labeling',start_line)	
+			search_tmp = search_string_in_file(examcard,'Arterial Spin labeling',start_line)	
 			tmp = search_tmp[0][1].split(':')
 			asl_type = tmp[-1].strip()
 
@@ -159,7 +151,7 @@ def main(argv):
 				# Get file name for non-m0 scan to set as 'IntendedFor'
 				for s in scannames:
 					if s.find('m0') == -1 & s.find('M0') == -1:
-						for nii_file in glob.glob(bids + '/sub-*/ses-*/perf/*.nii.gz'):
+						for nii_file in glob.glob(bidsdir + '/sub-*/ses-*/perf/*.nii.gz'):
 							if nii_file.find('m0') == -1 & nii_file.find('M0') == -1:
 								asl_nii = nii_file.split('/')
 								IntendedFor = '/'.join(asl_nii[-3:])
@@ -168,13 +160,13 @@ def main(argv):
 				
 				# Parse examcard for AcquisitionVoxelSize
 				acq_vox_size = []
-				search_tmp = search_string_in_file(inputfile,'ACQ voxel size',start_line)
+				search_tmp = search_string_in_file(examcard,'ACQ voxel size',start_line)
 				tmp = search_tmp[0][1].split(':')
 				acq_vox_size.append(float(tmp[-1].strip()))
 				tmp = search_tmp[1][1].split(':')
 				acq_vox_size.append(float(tmp[-1].strip()))
 
-				search_tmp = search_string_in_file(inputfile,'Slice thickness',start_line)
+				search_tmp = search_string_in_file(examcard,'Slice thickness',start_line)
 				tmp = search_tmp[0][1].split(':')
 				acq_vox_size.append(float(tmp[-1].strip()))
 
@@ -183,7 +175,7 @@ def main(argv):
 
 
 				# Add exam card info to m0 json
-				json_file = glob.glob(bids+'/sub-*/ses-*/perf/*m0scan.json')
+				json_file = glob.glob(bidsdir+'/sub-*/ses-*/perf/*m0scan.json')
 				modify_json(json_file[0],scan_dict[scan])
 
 			else:
@@ -200,7 +192,7 @@ def main(argv):
 				print('\tM0 type:',M0_type)
 				
 				# Parse exam card for background suppression
-				search_tmp = search_string_in_file(inputfile,'back. supp.',start_line)
+				search_tmp = search_string_in_file(examcard,'back. supp.',start_line)
 				tmp = search_tmp[0][1].split(':')
 				back_supp = tmp[-1].strip()
 				if back_supp == 'NO':
@@ -211,21 +203,21 @@ def main(argv):
 				scan_dict[scan]["BackgroundSuppression"] = back_supp
 
 				# Parse exam card for label delay
-				search_tmp = search_string_in_file(inputfile,'label delay',start_line)
+				search_tmp = search_string_in_file(examcard,'label delay',start_line)
 				tmp = search_tmp[0][1].split(':')
 				label_delay = float(tmp[-1].strip())/1000
 				print('\tLabel delay:',label_delay, 'sec')
 				scan_dict[scan]["PostLabelingDelay"] = label_delay
 
 				# Parse exam card for TR and nSlices to generate slice timing
-				search_tmp = search_string_in_file(inputfile,'Slices',start_line)
+				search_tmp = search_string_in_file(examcard,'Slices',start_line)
 				tmp = search_tmp[0][1].split(':')
 				n_slices = int(tmp[-1].strip())
 				
-				search_tmp = search_string_in_file(inputfile,'TR ',start_line)
+				search_tmp = search_string_in_file(examcard,'TR ',start_line)
 				tmp = search_tmp[0][1].split(':')
 				if tmp[-1].strip() == 'USER_DEF':
-					search_tmp = search_string_in_file(inputfile,'(ms)',search_tmp[0][0])
+					search_tmp = search_string_in_file(examcard,'(ms)',search_tmp[0][0])
 					tmp = search_tmp[0][1].split(':')
 					tr = float(tmp[-1].strip())/1000
 				else:
@@ -236,7 +228,7 @@ def main(argv):
 				slice_timing = np.linspace(0,tr-ta,n_slices) #ascending
 
 				# If slice order is descending, flip the slice timing list
-				search_tmp = search_string_in_file(inputfile,'Slice scan order',start_line)
+				search_tmp = search_string_in_file(examcard,'Slice scan order',start_line)
 				tmp = search_tmp[0][1].split(':')
 				if tmp[-1].strip() == 'DESCEND':
 					slice_timing = slice_timing.reverse()
@@ -246,16 +238,16 @@ def main(argv):
 
 				if asl_type == 'pCASL' or 'CASL' or 'PCASL':
 					# Parse exam card for background suppression
-					search_tmp = search_string_in_file(inputfile,'label duration',start_line)
+					search_tmp = search_string_in_file(examcard,'label duration',start_line)
 					if not search_tmp:
-						search_tmp = search_string_in_file(inputfile,'EX_FLL_casl_dur',start_line)
+						search_tmp = search_string_in_file(examcard,'EX_FLL_casl_dur',start_line)
 					tmp = search_tmp[0][1].split(':')
 					label_duration = float(tmp[-1].strip())/1000
 					print('\tLabeling duration:',label_duration, 'sec')
 					scan_dict[scan]["LabelingDuration"] = label_duration
 
 					# Parse examcard for Background Suppression Pulses
-					search_tmp = search_string_in_file(inputfile,'back. supp. pulses',start_line)
+					search_tmp = search_string_in_file(examcard,'back. supp. pulses',start_line)
 					tmp = search_tmp[0][1].split(':')
 					back_supp_pulses_str = tmp[-1].strip()
 
@@ -270,7 +262,7 @@ def main(argv):
 					scan_dict[scan]["BackgroundSuppressionNumberPulses"] = back_supp_num_pulses
 
 					# Parse examcard for label distance
-					search_tmp = search_string_in_file(inputfile,'label distance',start_line)
+					search_tmp = search_string_in_file(examcard,'label distance',start_line)
 					tmp = search_tmp[0][1].split(':')
 					label_distance = tmp[-1].strip()
 					print('\tLabel Distance:', label_distance, 'mm')
@@ -278,13 +270,13 @@ def main(argv):
 
 					# Parse examcard for AcquisitionVoxelSize
 					acq_vox_size = []
-					search_tmp = search_string_in_file(inputfile,'ACQ voxel size',start_line)
+					search_tmp = search_string_in_file(examcard,'ACQ voxel size',start_line)
 					tmp = search_tmp[0][1].split(':')
 					acq_vox_size.append(float(tmp[-1].strip()))
 					tmp = search_tmp[1][1].split(':')
 					acq_vox_size.append(float(tmp[-1].strip()))
 
-					search_tmp = search_string_in_file(inputfile,'Slice thickness',start_line)
+					search_tmp = search_string_in_file(examcard,'Slice thickness',start_line)
 					tmp = search_tmp[0][1].split(':')
 					acq_vox_size.append(float(tmp[-1].strip()))
 
@@ -292,7 +284,7 @@ def main(argv):
 					scan_dict[scan]["AcquisitionVoxelSize"] = acq_vox_size
 
 					# Parse examcard for Vascular crushing
-					search_tmp = search_string_in_file(inputfile,'vascular crushing',start_line)
+					search_tmp = search_string_in_file(examcard,'vascular crushing',start_line)
 					tmp = search_tmp[0][1].split(':')
 					vasc_crush = tmp[-1].strip()
 					if vasc_crush == 'NO':
@@ -305,23 +297,23 @@ def main(argv):
 
 				if asl_type == 'pASL':
 					# Parse exam card for background suppression
-					#search_tmp = search_string_in_file(inputfile,'BolusCutOffFlag',start_line)
+					#search_tmp = search_string_in_file(examcard,'BolusCutOffFlag',start_line)
 					#tmp = search_tmp[0][1].split(':')
 					#bolus = tmp[-1].strip()
 					#print('\tBolus Cut Off Flag:',bolus)
 					scan_dict[scan]["BolusCutOffFlag"] = False
 
 					# Parse exam card for background suppression
-					search_tmp = search_string_in_file(inputfile,'label duration',start_line)
+					search_tmp = search_string_in_file(examcard,'label duration',start_line)
 					if not search_tmp:
-						search_tmp = search_string_in_file(inputfile,'EX_FLL_casl_dur',start_line)
+						search_tmp = search_string_in_file(examcard,'EX_FLL_casl_dur',start_line)
 					tmp = search_tmp[0][1].split(':')
 					label_duration = float(tmp[-1].strip())/1000
 					print('\tLabeling duration:',label_duration, 'sec')
 					scan_dict[scan]["LabelingDuration"] = label_duration
 
 					# Parse examcard for Background Suppression Pulses
-					search_tmp = search_string_in_file(inputfile,'back. supp. pulses',start_line)
+					search_tmp = search_string_in_file(examcard,'back. supp. pulses',start_line)
 					tmp = search_tmp[0][1].split(':')
 					back_supp_pulses_str = tmp[-1].strip()
 
@@ -336,7 +328,7 @@ def main(argv):
 					scan_dict[scan]["BackgroundSuppressionNumberPulses"] = back_supp_num_pulses
 
 					# Parse examcard for label distance
-					search_tmp = search_string_in_file(inputfile,'label distance',start_line)
+					search_tmp = search_string_in_file(examcard,'label distance',start_line)
 					tmp = search_tmp[0][1].split(':')
 					label_distance = tmp[-1].strip()
 					print('\tLabel Distance:', label_distance, 'mm')
@@ -344,13 +336,13 @@ def main(argv):
 
 					# Parse examcard for AcquisitionVoxelSize
 					acq_vox_size = []
-					search_tmp = search_string_in_file(inputfile,'ACQ voxel size',start_line)
+					search_tmp = search_string_in_file(examcard,'ACQ voxel size',start_line)
 					tmp = search_tmp[0][1].split(':')
 					acq_vox_size.append(float(tmp[-1].strip()))
 					tmp = search_tmp[1][1].split(':')
 					acq_vox_size.append(float(tmp[-1].strip()))
 
-					search_tmp = search_string_in_file(inputfile,'Slice thickness',start_line)
+					search_tmp = search_string_in_file(examcard,'Slice thickness',start_line)
 					tmp = search_tmp[0][1].split(':')
 					acq_vox_size.append(float(tmp[-1].strip()))
 
@@ -358,7 +350,7 @@ def main(argv):
 					scan_dict[scan]["AcquisitionVoxelSize"] = acq_vox_size
 
 					# Parse examcard for Vascular crushing
-					search_tmp = search_string_in_file(inputfile,'vascular crushing',start_line)
+					search_tmp = search_string_in_file(examcard,'vascular crushing',start_line)
 					tmp = search_tmp[0][1].split(':')
 					vasc_crush = tmp[-1].strip()
 					if vasc_crush == 'NO':
@@ -369,7 +361,7 @@ def main(argv):
 					scan_dict[scan]["VascularCrushing"] = vasc_crush
 
 				# Add exam card info to asl json
-				json_file = glob.glob(bids+'/sub-*/ses-*/perf/*asl.json')
+				json_file = glob.glob(bidsdir+'/sub-*/ses-*/perf/*asl.json')
 				modify_json(json_file[0],scan_dict[scan])
 		else:
 			print(scan,' not found. Please repeat with correct scan name.')

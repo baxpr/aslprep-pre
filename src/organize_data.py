@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 
 import argparse
-import getopt
-import glob
 import os
 import sys
 from pydicom import dcmread
