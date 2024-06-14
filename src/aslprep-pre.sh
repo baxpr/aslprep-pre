@@ -37,3 +37,6 @@ examcard2json.py -i ${indir} -b ${bidsdir} -e ${examcard}
 
 #Create ASL context tsv file
 create_tsv.py -b ${bidsdir}
+
+#Run aslprep
+aslprep --fs-license-file ${fs_license} ${bidsdir} ${outdir} ${level} -w ${outdir}
