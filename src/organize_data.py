@@ -47,19 +47,7 @@ def main(argv):
     with open(indir + '/SeriesDescription.json','w') as outfile:
         json.dump(scanname,outfile)
 
-    # move scans to BIDS directories
-    os.system('mkdir -p ' + indir + '/BIDS/sub-01/ses-01/anat/')
-    os.system('mkdir -p ' + indir + '/BIDS/sub-01/ses-01/perf/')
-
-    os.system('cp ' + source + ' ' + indir + '/BIDS/sub-01/ses-01/perf/' + os.path.basename(source))
-    os.system('cp ' + m0 + ' ' + indir + '/BIDS/sub-01/ses-01/perf/m0' + os.path.basename(m0))
-    os.system('cp ' + t1w + ' ' + indir + '/BIDS/sub-01/ses-01/anat/' + os.path.basename(t1w))
-
-    # run dcm2niix on source and m0 scans
-    os.system('/data/mcr/centos7/dcm2niix/v1.0.20240202/console/dcm2niix -z y -f %b ' + indir + '/BIDS/sub-01/ses-01/anat')
-    os.system('/data/mcr/centos7/dcm2niix/v1.0.20240202/console/dcm2niix -z y -f %b ' + indir + '/BIDS/sub-01/ses-01/perf')
-#    os.system('dcm2niix -f %b ' + indir + '/BIDS/sub-01/ses-01/anat')
-#    os.system('dcm2niix -f %b ' + indir + '/BIDS/sub-01/ses-01/perf')
+    subprocess.call(['./bash_commands.sh', str(indir), str(source), str(m0), str(t1w), str(source_base), str(m0_base), str(t1w_base)])
 
     # remove leftover dicoms
     for file in glob.glob(indir + '/BIDS/sub-01/ses-01/*/*'):
