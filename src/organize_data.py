@@ -60,7 +60,6 @@ def main(argv):
             os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + anat_rename + '.json')
         else:
             os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + anat_rename + '.nii')
-#            os.system('gzip ' + os.path.dirname(file) + '/' + anat_rename + '.nii')
 
     asl_rename = 'sub-01_ses-01_asl'
     m0_rename = 'sub-01_ses-01_m0scan'
@@ -70,13 +69,11 @@ def main(argv):
                 os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + m0_rename + '.json')
             else:
                 os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + m0_rename + '.nii')
-#                os.system('gzip ' + os.path.dirname(file) + '/' + m0_rename + '.nii')
         else:
             if file.endswith('.json'):
                 os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + asl_rename + '.json')
             else:
                 os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + asl_rename + '.nii')
-#                os.system('gzip ' + os.path.dirname(file) + '/' + asl_rename + '.nii')
 
     # create dataset_description.json
     dataset_description = {
