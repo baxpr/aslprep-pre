@@ -138,6 +138,11 @@ def main(argv):
             tmp = search_tmp[0][1].split(':')
             asl_type = tmp[-1].strip()
 
+            search_tmp = search_string_in_file(inputfile,'Slice scan order',start_line)
+            tmp = search_tmp[0][1].split(':')
+            sso_type = tmp[-1].strip()
+            print('Slice Scan Order:',sso_type)
+            
             # set repetiion time prep until better method found
             scan_dict[scan]["RepetitionTimePreparation"] = 0
             print('\tRepetition Time Preparation:',str(0), 'sec')
