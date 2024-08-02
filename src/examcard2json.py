@@ -114,8 +114,9 @@ def main(argv):
     bids = args.bids
     inputfile = args.examcard
 
-    #Initialize dictionaries
+    #Initialize dictionaries and vars
     scan_dict = {}
+    slice_list = []
 
     #Get scans from SeriesDescription.json
     with open(indir + '/SeriesDescription.json','r') as infile:
@@ -146,6 +147,19 @@ def main(argv):
             # set repetiion time prep until better method found
             scan_dict[scan]["RepetitionTimePreparation"] = 0
             print('\tRepetition Time Preparation:',str(0), 'sec')
+
+            # Load slice dictionary
+            slice_list.append((scan,sso_type))
+
+            # Probably need a better way to do this. Compare length of list to length of set list, 
+            # which removed duplicates. If there are not duplicates, but same scans, it's not really
+            # getting handled (A, A; A, B). Also, not really handling two different that aren't the 
+            # same (A, Y; B, Z).
+            if len(slice_list) != len(set(slice_list)):
+                print('duplicates')
+            else:
+                # Need to check two mentioned above here and a way to exit out entirely if we need it
+                print('not duplicates')
 
             # If ASL type is 'NO', then scan is m0
             if asl_type == 'NO':
