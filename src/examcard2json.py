@@ -145,7 +145,6 @@ def main(argv):
                 #Load slice dictionary
                 slice_list.append((scan,sso_type))
                 COUNT+=1
-                print(slice_list)
 
             # set repetiion time prep until better method found
             scan_dict[scan]["RepetitionTimePreparation"] = 0
