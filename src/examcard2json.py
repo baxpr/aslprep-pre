@@ -117,6 +117,7 @@ def main(argv):
     #Initialize dictionaries and vars
     scan_dict = {}
     slice_list = []
+    COUNT = 0
 
     #Get scans from SeriesDescription.json
     with open(indir + '/SeriesDescription.json','r') as infile:
@@ -130,26 +131,30 @@ def main(argv):
         # Find start of scan section
         start_line = 0
         string_to_search = 'Protocol Name:  ' + scan
-        if find_scans:
+        print("find_scans: ",find_scans)
+        print(len(find_scans))
+        print(COUNT)
+        if find_scans and COUNT < len(find_scans):
             for line in find_scans:
-                for num in line:
-                    if re.search(r"\b{}\b".format(string_to_search),str(num)):
-                        start_line = line[0]
-            search_tmp = search_string_in_file(inputfile,'Arterial Spin labeling',start_line)
-            tmp = search_tmp[0][1].split(':')
-            asl_type = tmp[-1].strip()
+                print("line: ", line)
+#                for num in line:
+#                if re.search(r"\b{}\b".format(string_to_search),str(num)):
+                if re.search(r"\b()\b".format(string_to_search),str(line)):
+                    start_line = line[0]
+                    print('start line: ',start_line)
+                    search_tmp = search_string_in_file(inputfile,'Slice scan order',start_line)
+                    tmp = search_tmp[0][1].split(':')
+                    sso_type = tmp[-1].strip()
+                    print('Slice Scan Order:',sso_type)
 
-            search_tmp = search_string_in_file(inputfile,'Slice scan order',start_line)
-            tmp = search_tmp[0][1].split(':')
-            sso_type = tmp[-1].strip()
-            print('Slice Scan Order:',sso_type)
-            
+                #Load slice dictionary
+                slice_list.append((scan,sso_type))
+                COUNT+=1
+                print(slice_list)
+
             # set repetiion time prep until better method found
             scan_dict[scan]["RepetitionTimePreparation"] = 0
             print('\tRepetition Time Preparation:',str(0), 'sec')
-
-            # Load slice dictionary
-            slice_list.append((scan,sso_type))
 
             # Probably need a better way to do this. Compare length of list to length of set list, 
             # which removed duplicates. If there are not duplicates, but same scans, it's not really
