@@ -131,17 +131,12 @@ def main(argv):
         # Find start of scan section
         start_line = 0
         string_to_search = 'Protocol Name:  ' + scan
-        print("find_scans: ",find_scans)
-        print(len(find_scans))
-        print(COUNT)
         if find_scans and COUNT < len(find_scans):
             for line in find_scans:
-                print("line: ", line)
 #                for num in line:
 #                if re.search(r"\b{}\b".format(string_to_search),str(num)):
                 if re.search(r"\b()\b".format(string_to_search),str(line)):
                     start_line = line[0]
-                    print('start line: ',start_line)
                     search_tmp = search_string_in_file(inputfile,'Slice scan order',start_line)
                     tmp = search_tmp[0][1].split(':')
                     sso_type = tmp[-1].strip()
