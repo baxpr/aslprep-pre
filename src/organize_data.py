@@ -1,68 +1,91 @@
 #!/usr/bin/env python
 
+# Script for organizing ASL data to BIDS format
+# Pull scan name from asl and m0 image, NEED TO DO: output to examcard2json
+# Remove asl image (or just don't put it in the BIDS folder?)
+# Convert dicom to nifti
+
 import argparse
+import glob
 import os
-import sys
+import sys, getopt
 from pydicom import dcmread
 import json
 
 def main(argv):
-    
     parser = argparse.ArgumentParser()
-    parser.add_argument('outdir')
-    parser.add_argument('t1_dcm')
-    parser.add_argument('asl_dcm')
-    parser.add_argument('m0_dcm')
-    parser.add_argument('source_dcm')
+    parser.add_argument('-i','--indir')
+    parser.add_argument('-a','--asl')
+    parser.add_argument('-m','--m0')
+    parser.add_argument('-s','--source')
+    parser.add_argument('-t','--t1w')
     args = parser.parse_args()
-    outdir = args.outdir
-    t1_dcm = args.t1_dcm
-    asl_dcm = args.asl_dcm
-    m0_dcm = args.m0_dcm
-    source_dcm = args.source_dcm
+    indir = args.indir
+    asl = args.asl
+    m0 = args.m0
+    source = args.source
+    t1w = args.t1w
 
-	# get pydicom info for each scan
-	ds_asl = dcmread(asl_dcm)
-	ds_m0 = dcmread(m0_dcm)
-	ds_t1w = dcmread(t1_dcm)
-	ds_source = dcmread(source_dcm)
+    # check if file paths are absolute
+    if os.path.isabs(asl) == False:
+        asl = indir + '/' + asl
+        m0 = indir + '/' + m0
+        source = indir + '/' + source
 
-	# pull scan name from dicom header and write to json
-	scanname = {}
-	scanname['asl'] = ds_asl.SeriesDescription
-	scanname['m0'] = ds_m0.SeriesDescription
-	with open(outdir + '/SeriesDescription.json','w') as outfile:
-		json.dump(scanname,outfile)
+    # get pydicom info for each scan
+    ds_asl = dcmread(asl)
+    ds_m0 = dcmread(m0)
+    ds_t1w = dcmread(t1w)
+    ds_source = dcmread(source)
 
-	# Make BIDS directories
-    anatdir = 'f{outdir}/BIDS/sub-01/ses-01/anat'
-    os.makedirs(anatdir)
-    perfdir = 'f{outdir}/BIDS/sub-01/ses-01/perf'
-    os.makedirs(perfdir)
+    # pull scan name from dicom header
+    scanname = {}
+    scanname['asl'] = ds_asl.SeriesDescription
+    scanname['m0'] = ds_m0.SeriesDescription
 
-	# run dcm2niix on source and m0 scans, with BIDS-compliant filenames. 
-    # "Source" is the ASL secondary recon from the scanner and is 
-    # relabeled as 'asl' for BIDS
-	os.system(f'dcm2niix -s y -f sub-01_ses-01_T1w -o {anatdir} {t1_dcm}')
-	os.system(f'dcm2niix -s y -f sub-01_ses-01_m0scan -o {perfdir} {m0_dcm}')
-	os.system(f'dcm2niix -s y -f sub-01_ses-01_asl -o {perfdir} {source_dcm}')
-	
-	#ds_t1w.SeriesDescription = ds_t1w.SeriesDescription.replace(" ","").replace('/', "").replace(":", "").replace("_", "")
-	#ds_asl.SeriesDescription = ds_asl.SeriesDescription.replace(" ","").replace('/', "").replace(":", "").replace("_", "")
-	#ds_m0.SeriesDescription = ds_m0.SeriesDescription.replace(" ","").replace('/', "").replace(":", "").replace("_", "")
+    # write scanname dict to json
+    with open(indir + '/SeriesDescription.json','w') as outfile:
+        json.dump(scanname,outfile)
 
-	# create dataset_description.json
-    # FIXME what can we do that's better than NA?
-	dataset_description = {
-	  "BIDSVersion": "1.0.1",
-	  "Name": "NA",
-  	  "DatasetDOI": "NA",
-  	  "Author": "NA"
-	  }
-	
-	with open(indir + '/BIDS/dataset_description.json','w') as outfile:
-		json.dump(dataset_description,outfile)
+    subprocess.call(['./bash_commands.sh', str(indir), str(source), str(m0), str(t1w), str(source_base), str(m0_base), str(t1w_base)])
+
+    # remove leftover dicoms
+    for file in glob.glob(indir + '/BIDS/sub-01/ses-01/*/*'):
+        if file.endswith('.dcm'):
+            os.system('rm ' + file)
+
+    anat_rename = 'sub-01_ses-01_T1w'
+    for file in glob.glob(indir + '/BIDS/sub-01/ses-01/anat/*'):
+        if file.endswith('.json'):
+            os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + anat_rename + '.json')
+        else:
+            os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + anat_rename + '.nii')
+
+    asl_rename = 'sub-01_ses-01_asl'
+    m0_rename = 'sub-01_ses-01_m0scan'
+    for file in glob.glob(indir + '/BIDS/sub-01/ses-01/perf/*'):
+        if 'M0' in file or 'm0' in file:
+            if file.endswith('.json'):
+                os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + m0_rename + '.json')
+            else:
+                os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + m0_rename + '.nii')
+        else:
+            if file.endswith('.json'):
+                os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + asl_rename + '.json')
+            else:
+                os.system('mv ' + file + ' ' + os.path.dirname(file) + '/' + asl_rename + '.nii')
+
+    # create dataset_description.json
+    dataset_description = {
+      "BIDSVersion": "1.0.1",
+      "Name": "XNAT Project",
+      "DatasetDOI": "https://xnat2.vanderbilt.edu/xnat",
+      "Author": "No Author defined on XNAT"
+      }
+
+    with open(indir + '/BIDS/dataset_description.json','w') as outfile:
+        json.dump(dataset_description,outfile)
 
 
 if __name__ == '__main__':
-	main(sys.argv[1:])
+    main(sys.argv[1:])
